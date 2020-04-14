@@ -19,13 +19,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.SequenceInputStream;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -35,10 +36,12 @@ import java.sql.Statement;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TimeZone;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -163,22 +166,55 @@ public class S3Ops {
 
 
     public void runQuery(String tableName, String attributeName, LocalDateTime from, LocalDateTime to) throws FileNotFoundException {
+        if (Objects.isNull(to)) {
+            to = LocalDateTime.now();
+        }
         final String dateRangeRecordsQuery = getDateRangeRecordsQuery(Utils.DATE_RANGE_RECORDS_QUERY, tableName, attributeName, from, to);
         try (ByteArrayOutputStream byteArrayOs = new ByteArrayOutputStream()) {
             Void query = jdbcTemplate.query(dateRangeRecordsQuery, new StreamingCsvResultSetExtractor(byteArrayOs));
-            String folderName = getFileName(tableName, from, to, 1);
-            uploadToS3(folderName, byteArrayOs);
+            final int fileVersion = getFileVersion(tableName);
+            String fileWithFolderS3 = getFileName(tableName, from, to, fileVersion);
+            uploadToS3(fileWithFolderS3, byteArrayOs);
             final String dateRangeRecordsQuery1 = getDateRangeRecordsQuery(Utils.DATE_RANGE_DELETE_RECORDS_QUERY, tableName, attributeName, from, to);
             final int update = jdbcTemplate.update(dateRangeRecordsQuery1);
-            syncArchiveMetaDate(metaData.getDataBaseName(),getArchiveName(tableName,from,to,1));
+
+            syncArchiveMetaDate(metaData.getDataBaseName(), getArchiveName(tableName, from, to, fileVersion) + "\n");
         } catch (IOException e) {
             e.printStackTrace();
         }
 
     }
 
+    private int getFileVersion(String tableName) throws IOException {
+        String metaDataFileName = metaData.getDataBaseName() + "/metadata.txt";
+        final Optional<S3ObjectSummary> s3ObjectSummary = isObjectPresent(metaData.getDataBaseName(), metaDataFileName);
+        if (s3ObjectSummary.isPresent()) {
+            final S3Object object = getS3Object(metaDataFileName);
+
+            List<String> archives = inputStreamToList(object);
+
+            final List<String> collect = archives.stream().filter(x -> x.contains(tableName)).collect(Collectors.toList());
+            if (!collect.isEmpty()) {
+                final String[] s = collect.get(collect.size()-1).split("_");
+                return Integer.valueOf(s[s.length - 1]) + 1;
+            }
+            return 1;
+        }
+        return 1;
+    }
+
+    private List<String> inputStreamToList(S3Object object) throws IOException {
+        final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(object.getObjectContent()));
+        String line;
+        List<String> archives = new ArrayList<>();
+        while ((line = bufferedReader.readLine()) != null) {
+            archives.add(line);
+        }
+        return archives;
+    }
+
     private String getFileName(String tableName, LocalDateTime from, LocalDateTime to, int version) {
-        return metaData.getDataBaseName() + "/" + tableName + "/" + getDateFormatted(from, to, version) + ".csv";
+        return metaData.getDataBaseName() + "/" + tableName + "/" + tableName + "_" + getDateFormatted(from, to, version) + ".csv";
     }
 
     private String getDateFormatted(LocalDateTime from, LocalDateTime to, int version) {
@@ -186,16 +222,22 @@ public class S3Ops {
                 + to.format(DateTimeFormatter.ofPattern("yyyy-mm-dd")) + "_" + version;
     }
 
-    private String getArchiveName(String tableName, LocalDateTime from, LocalDateTime to, int version){
-        return  tableName + "_" + getDateFormatted(from,to,version);
+    private String getArchiveName(String tableName, LocalDateTime from, LocalDateTime to, int version) {
+        return tableName + "_" + getDateFormatted(from, to, version);
     }
+
     private void uploadToS3(String folderName, ByteArrayOutputStream byteArrayOs) {
         final byte[] bytes = byteArrayOs.toByteArray();
         final ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(bytes);
         final ObjectMetadata objectMetadata = new ObjectMetadata();
         objectMetadata.setContentLength(bytes.length);
+        uploadToS3UsingInputStream(folderName, byteArrayInputStream, objectMetadata);
+        log.info("back up file{} for table {} and db {}  uploaded  ", "Test file", folderName.split("_")[0], folderName.split("_")[1]);
+    }
+
+    private void uploadToS3UsingInputStream(String folderName, InputStream inputStream, ObjectMetadata objectMetadata) {
         try {
-            amazonS3.putObject(new PutObjectRequest(props.getAwsServices().getBucketName(), folderName + "/TestFile2.csv", byteArrayInputStream, objectMetadata));
+            amazonS3.putObject(new PutObjectRequest(props.getAwsServices().getBucketName(), folderName, inputStream, objectMetadata));
         } catch (AmazonServiceException ase) {
             log.info("Error while uploading file to s3: {}", ase);
             throw ase;
@@ -206,7 +248,6 @@ public class S3Ops {
             log.info("Error while uploading file to s3: {}", e);
             throw e;
         }
-        log.info("back up file{} for table {} and db {}  uploaded  ", "Test file", folderName.split("_")[0], folderName.split("_")[1]);
     }
 
     public DbMetaData getMetaData() {
@@ -214,27 +255,71 @@ public class S3Ops {
     }
 
     private String getDateRangeRecordsQuery(String query, String tableName, String attribute, LocalDateTime from, LocalDateTime to) {
-        if (Objects.isNull(to)) {
-            to = LocalDateTime.now();
-        }
+
         return String.format(query, tableName, attribute, from.toString(), to.toString());
     }
 
-
-    private boolean syncArchiveMetaDate(String dbName, String archiveNameWithVersion) {
+    //TODO we can reduce the number of lookup for file present
+    private boolean syncArchiveMetaDate(String dbName, String archiveNameWithVersion) throws IOException {
 
         String metaDataFileName = dbName + "/metadata.txt";
-        final ObjectListing objectListing = amazonS3.listObjects(props.getAwsServices().getBucketName(), dbName);
-        final Optional<S3ObjectSummary> any = objectListing.getObjectSummaries().stream().filter(x -> x.getKey().equals(metaDataFileName)).findAny();
+        final Optional<S3ObjectSummary> any = isObjectPresent(dbName, metaDataFileName);
         InputStream inputStream = new ByteArrayInputStream(archiveNameWithVersion.getBytes());
 
         if (any.isPresent()) {
-            final S3Object object = amazonS3.getObject(props.getAwsServices().getBucketName(), metaDataFileName);
+            final S3Object object = getS3Object(metaDataFileName);
             inputStream = new SequenceInputStream(object.getObjectContent(), inputStream);
         }
         final ObjectMetadata objectMetadata = new ObjectMetadata();
         objectMetadata.setContentType("text/plain");
-        amazonS3.putObject(new PutObjectRequest(props.getAwsServices().getBucketName(), metaDataFileName, inputStream, objectMetadata));
+        uploadToS3UsingInputStream( metaDataFileName, inputStream, objectMetadata);
         return true;
+    }
+
+    private S3Object getS3Object(String fullFileOrFolderName) {
+        return amazonS3.getObject(props.getAwsServices().getBucketName(), fullFileOrFolderName);
+    }
+
+    private Optional<S3ObjectSummary> isObjectPresent(String dbName, String fullFileOrFolderName) {
+        final ObjectListing objectListing = amazonS3.listObjects(props.getAwsServices().getBucketName(), dbName);
+        return objectListing.getObjectSummaries().stream().filter(x -> x.getKey().equals(fullFileOrFolderName)).findAny();
+    }
+
+    public void unArchive(String archive) throws IOException {
+        String dbName = metaData.getDataBaseName();
+        final String[] s = archive.split("_");
+        String tableName = s[0];
+        final S3Object s3Object = getS3Object(dbName + "/" + tableName + "/" + archive + ".csv");
+        final List<String> strings = inputStreamToList(s3Object);
+        final List<String> transform = transform(strings);
+        final String insertRecord = String.format(Utils.INSERT_QUERY, tableName, transform.get(0), transform.get(1));
+        final int update = jdbcTemplate.update(insertRecord);
+        final S3Object s3Object1 = getS3Object(dbName + "/" + "metadata.txt");
+        final List<String> strings1 = inputStreamToList(s3Object1);
+        StringBuilder sb=new StringBuilder();
+        strings1.stream().filter(x->!x.equals(archive)).forEach(x->sb.append(x+"\n"));
+        final ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(sb.toString().getBytes());
+        final ObjectMetadata objectMetadata = new ObjectMetadata();
+        objectMetadata.setContentType("text/plain");
+        uploadToS3UsingInputStream(dbName+"/metadata.txt",byteArrayInputStream,objectMetadata);
+    }
+
+    private List<String> transform(List<String> strings) {
+        List<String> strForSql = new ArrayList<>(4);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < strings.size(); i++) {
+            if (i == 0) {
+                strForSql.add("(" + strings.get(i) + ")");
+            } else {
+                if (i == strings.size() - 1) {
+                    sb.append("(" + strings.get(i) + ");");
+                    continue;
+                }
+                sb.append("(" + strings.get(i) + "),");
+            }
+
+        }
+        strForSql.add(sb.toString());
+        return strForSql;
     }
 }

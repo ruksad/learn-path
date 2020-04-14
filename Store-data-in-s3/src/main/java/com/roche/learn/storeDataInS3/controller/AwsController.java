@@ -12,7 +12,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.websocket.server.PathParam;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.Date;
@@ -50,9 +52,10 @@ public class AwsController {
         return null;
     }
 
-    @PostMapping(value = "/db/attributes/unArchive/{tableName}/{attributeName}",produces = "application/json")
-    public ResponseEntity unArchiveByAttribute(){
-        return null;
+    @PostMapping(value = "/db/unArchive/{archive}",produces = "application/txt")
+    public Boolean unArchiveByAttribute(@PathVariable String archive) throws IOException {
+        s3Ops.unArchive(archive);
+        return true;
     }
 }
 
