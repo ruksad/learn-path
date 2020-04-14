@@ -21,3 +21,16 @@
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
+
+**\**.xml
+
+.idea/**.xml
+!/.idea/**/**.xml
+Store-data-in-s3/.mvn/wrapper/maven-wrapper.properties
+Store-data-in-s3/HELP.md
+Store-data-in-s3/mvnw
+Store-data-in-s3/mvnw.cmd
+Store-data-in-s3/store-data-in-s3.iml
+Store-data-in-s3/target/generated-sources/
+Testing_1.txt
+!/.idea/
