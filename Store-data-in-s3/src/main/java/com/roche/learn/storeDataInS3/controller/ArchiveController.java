@@ -14,18 +14,15 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.sql.SQLException;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.Objects;
 
 @RestController
 @Slf4j
-public class AwsController {
+public class ArchiveController {
 
     private S3Ops s3Ops;
 
     @Autowired
-    AwsController(S3Ops s3Ops) {
+    ArchiveController(S3Ops s3Ops) {
         this.s3Ops = s3Ops;
     }
 
@@ -39,19 +36,10 @@ public class AwsController {
                                              @RequestParam boolean isDateAttribute, @RequestParam String from,
                                              @RequestParam(required = false) String to) throws FileNotFoundException {
 
-        if (isDateAttribute) {
-            final LocalDateTime fromLD = LocalDateTime.parse(from, DateTimeFormatter.ISO_DATE_TIME);
-            LocalDateTime toLD;
-            if (Objects.isNull(to)) {
-                toLD = LocalDateTime.now();
-            } else {
-                toLD = LocalDateTime.parse(from, DateTimeFormatter.ISO_DATE_TIME);
-            }
-            log.info("archiving for table {} and attribute {} and for date from {}, to {}", tableName, attributeName, from, to);
-            s3Ops.runQuery(tableName, attributeName, fromLD, toLD);
-        } else {
 
-        }
+        log.info("archiving for table {} and attribute {} and for date from {}, to {}", tableName, attributeName, from, to);
+        s3Ops.runQuery(tableName, attributeName, from, to,isDateAttribute);
+
         return ResponseEntity.ok(Boolean.TRUE);
     }
 

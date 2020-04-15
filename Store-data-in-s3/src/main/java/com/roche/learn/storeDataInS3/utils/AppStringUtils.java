@@ -12,7 +12,7 @@ import java.util.List;
 
 public class AppStringUtils {
 
-    public static String DATE_RANGE_RECORDS_QUERY = "SELECT * FROM %s WHERE %s  BETWEEN '%s' AND '%s';";
+    public static String RANGE_RECORDS_QUERY = "SELECT * FROM %s WHERE %s  BETWEEN '%s' AND '%s';";
     public static String DATE_FORMAT = "yyyy-MM-dd'T'HH:mm'Z'";
     public static String DATE_RANGE_DELETE_RECORDS_QUERY = "DELETE FROM %s WHERE %s BETWEEN '%s' AND '%s'";
 
@@ -34,17 +34,22 @@ public class AppStringUtils {
         return archives;
     }
 
-    public static String getFileName(String dbName, String tableName, LocalDateTime from, LocalDateTime to, int version) {
-        return dbName + "/" + tableName + "/" + tableName + "_" + getDateFormatted(from, to, version) + ".csv";
+    public static String getFileName(String dbName, String tableName, String from, String to, int version, boolean isDateAttribute) {
+        return dbName + "/" + tableName + "/" + getArchiveName(tableName,from,to,version,isDateAttribute)+AppStringUtils.ARCHIVE_FILE_EXTENSION;
     }
 
-    private static String getDateFormatted(LocalDateTime from, LocalDateTime to, int version) {
-        return from.format(DateTimeFormatter.ofPattern("yyyy-mm-dd")) + "_"
-                + to.format(DateTimeFormatter.ofPattern("yyyy-mm-dd")) + "_" + version;
+    private static String getDateFormatted(String from, String to, int version) {
+        return LocalDateTime.parse(from,DateTimeFormatter.ISO_DATE_TIME).format(DateTimeFormatter.ofPattern("yyyy-mm-dd")) + "_"
+                + LocalDateTime.parse(to,DateTimeFormatter.ISO_DATE_TIME).format(DateTimeFormatter.ofPattern("yyyy-mm-dd")) + "_" + version;
     }
 
-    public static String getArchiveName(String tableName, LocalDateTime from, LocalDateTime to, int version) {
-        return tableName + "_" + getDateFormatted(from, to, version);
+    public static String getArchiveName(String tableName, String from, String to, int version,boolean isDateAttribute) {
+        String archiveName=tableName + "_" ;
+        if(isDateAttribute){
+            return archiveName+ getDateFormatted(from, to, version);
+        }else{
+            return archiveName+"IDRANGE_"+from+"_"+to+"_"+version;
+        }
     }
 
     public static List<String> csvListToSQLValuesList(List<String> strings) {
