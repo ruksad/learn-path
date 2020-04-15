@@ -13,4 +13,11 @@ public class ArchiveAttribute {
     private String maxDate;
     private Integer minValue;
     private Integer maxValue;
+
+    public static ArchiveAttribute getArchiveAttribute(String column_name, boolean b) {
+        ArchiveAttribute archiveAttribute = new ArchiveAttribute();
+        archiveAttribute.setDate(b);
+        archiveAttribute.setName(column_name);
+        return archiveAttribute;
+    }
 }

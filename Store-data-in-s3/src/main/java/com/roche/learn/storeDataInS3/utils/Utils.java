@@ -1,10 +1,65 @@
 package com.roche.learn.storeDataInS3.utils;
 
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.roche.learn.storeDataInS3.model.DbMetaData;
+
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.text.SimpleDateFormat;
+import java.util.List;
+import java.util.Optional;
+import java.util.TimeZone;
+import java.util.stream.Collectors;
+
 public class Utils {
 
-    public static String DATE_RANGE_RECORDS_QUERY= "SELECT * FROM %s WHERE %s  BETWEEN '%s' AND '%s';";
-    public static String DATE_FORMAT= "yyyy-MM-dd'T'HH:mm'Z'";
-    public static String DATE_RANGE_DELETE_RECORDS_QUERY= "DELETE FROM %s WHERE %s BETWEEN '%s' AND '%s'";
 
-    public static String INSERT_QUERY = "INSERT INTO %s %s VALUES %s";
+    public static DbMetaData getMaxMinValueInTables(DbMetaData dbMetaData, Connection connection) throws SQLException {
+
+        try (Statement statement = connection.createStatement()) {
+            dbMetaData.getTableMetaData().forEach(table -> {
+                table.getArchiveAbleAttributes().forEach(attribute -> {
+                    String qfm = String.format(AppStringUtils.QUERY_MAX, attribute.getName(), table.getName());
+                    String qfMi = String.format(AppStringUtils.QUERY_MIN, attribute.getName(), table.getName());
+                    try {
+                        ResultSet resultSet = statement.executeQuery(qfm);
+                        while (resultSet.next()) {
+                            if (attribute.isDate()) {
+                                final String format = getStringFromDate(resultSet);
+
+                                attribute.setMaxDate(format);
+                            } else {
+                                attribute.setMaxValue(resultSet.getInt(1));
+                            }
+                        }
+                        ResultSet resultSet1 = statement.executeQuery(qfMi);
+                        while (resultSet1.next()) {
+                            if (attribute.isDate()) {
+
+                                final String format = getStringFromDate(resultSet1);
+
+                                attribute.setMinDate(format);
+                            } else {
+                                attribute.setMinValue(resultSet1.getInt(1));
+                            }
+                        }
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                });
+            });
+        }
+        return dbMetaData;
+    }
+
+    private static String getStringFromDate(ResultSet resultSet) throws SQLException {
+        final SimpleDateFormat df = new SimpleDateFormat(AppStringUtils.DATE_FORMAT);
+        df.setTimeZone(TimeZone.getDefault());
+        return null == resultSet.getTimestamp(1) ? "" : df.format(resultSet.getTimestamp(1));
+    }
+
 }
