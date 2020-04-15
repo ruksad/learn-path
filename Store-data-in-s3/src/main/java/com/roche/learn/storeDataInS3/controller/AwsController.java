@@ -47,7 +47,7 @@ public class AwsController {
             } else {
                 toLD = LocalDateTime.parse(from, DateTimeFormatter.ISO_DATE_TIME);
             }
-            log.info("archiving for table {} and attribute {} and for date from {}, to {}",tableName,attributeName,from,to);
+            log.info("archiving for table {} and attribute {} and for date from {}, to {}", tableName, attributeName, from, to);
             s3Ops.runQuery(tableName, attributeName, fromLD, toLD);
         } else {
 

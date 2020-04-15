@@ -2,8 +2,6 @@ package com.roche.learn.storeDataInS3.model;
 
 import lombok.Data;
 
-import java.util.Date;
-
 @Data
 public class ArchiveAttribute {
 

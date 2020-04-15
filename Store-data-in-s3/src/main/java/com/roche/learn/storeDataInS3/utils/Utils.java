@@ -1,19 +1,13 @@
 package com.roche.learn.storeDataInS3.utils;
 
-import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.roche.learn.storeDataInS3.model.DbMetaData;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.text.SimpleDateFormat;
-import java.util.List;
-import java.util.Optional;
 import java.util.TimeZone;
-import java.util.stream.Collectors;
 
 public class Utils {
 

@@ -31,7 +31,7 @@ public class StreamingCsvResultSetExtractor implements ResultSetExtractor<Void> 
             while (rs.next()) {
                 for (int i = 1; i <= columnCount; i++) {
                     Object value = rs.getObject(i);
-                    pw.write(value == null ? "''" : "'"+value.toString()+"'");
+                    pw.write(value == null ? "''" : "'" + value.toString() + "'");
                     if (i != columnCount) {
                         pw.append(DELIMITER);
                     }
