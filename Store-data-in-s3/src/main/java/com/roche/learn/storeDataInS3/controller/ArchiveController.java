@@ -45,8 +45,8 @@ public class ArchiveController {
 
     @PostMapping(value = "/db/tables/unArchive/{archive}")
     public ResponseEntity<Boolean> unArchiveByAttribute(@PathVariable String archive) throws IOException {
-        s3Ops.unArchive(archive);
-        return ResponseEntity.ok(Boolean.TRUE);
+
+        return ResponseEntity.ok(s3Ops.unArchive(archive));
     }
 }
 

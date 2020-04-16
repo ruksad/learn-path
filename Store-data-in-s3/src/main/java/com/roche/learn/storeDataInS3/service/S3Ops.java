@@ -68,20 +68,26 @@ public class S3Ops {
     }
 
 
-    public void runQuery(String tableName, String attributeName, String from, String to,boolean isDateAttribute) throws FileNotFoundException {
+    public void runQuery(String tableName, String attributeName, String from, String to, boolean isDateAttribute) throws FileNotFoundException {
         to = getToValueIfEmpty(tableName, attributeName, to, isDateAttribute);
         final String rangeRecordsQuery = getRangeRecordsQuery(AppStringUtils.RANGE_RECORDS_QUERY, tableName, attributeName, from, to);
         log.info("finding data for sql query {}", rangeRecordsQuery);
         try (ByteArrayOutputStream byteArrayOs = new ByteArrayOutputStream()) {
             Void query = jdbcTemplate.query(rangeRecordsQuery, new StreamingCsvResultSetExtractor(byteArrayOs));
             final int fileVersion = getArchiveVersion(tableName);
-            String fileWithFolderS3 = AppStringUtils.getFileName(metaData.getDataBaseName(), tableName, from, to, fileVersion,isDateAttribute);
+            String fileWithFolderS3 = AppStringUtils.getFileName(metaData.getDataBaseName(), tableName, from, to, fileVersion, isDateAttribute);
             uploadToS3(fileWithFolderS3, byteArrayOs);
             final String dateRangeRecordsQuery1 = getRangeRecordsQuery(AppStringUtils.DATE_RANGE_DELETE_RECORDS_QUERY, tableName, attributeName, from, to);
             log.info("Delete query for records {}", dateRangeRecordsQuery1);
-            final int update = jdbcTemplate.update(dateRangeRecordsQuery1);
+            int update = 0;
+            try {
+                update = jdbcTemplate.update(dateRangeRecordsQuery1);
+            } catch (Exception e) {
+                deleteObjectFromS3(fileWithFolderS3);
+                throw new RuntimeException("Issue with sql query" + e);
+            }
             log.info("Total number of records deleted {}", update);
-            syncArchiveMetaDate(metaData.getDataBaseName(), AppStringUtils.getArchiveName(tableName, from, to, fileVersion,isDateAttribute) + "\n");
+            syncArchiveMetaDate(metaData.getDataBaseName(), AppStringUtils.getArchiveName(tableName, from, to, fileVersion, isDateAttribute) + "\n");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -89,13 +95,13 @@ public class S3Ops {
     }
 
     private String getToValueIfEmpty(String tableName, String attributeName, String to, boolean isDateAttribute) {
-        if(Objects.isNull(to)){
-            if(isDateAttribute){
+        if (Objects.isNull(to)) {
+            if (isDateAttribute) {
                 to = LocalDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME);
-            }else{
+            } else {
                 final Optional<TableMetaData> first = metaData.getTableMetaData().stream().filter(x -> x.getName().equals(tableName)).findFirst();
                 final Optional<ArchiveAttribute> first1 = first.get().getArchiveAbleAttributes().stream().filter(x -> x.getName().equals(attributeName)).findFirst();
-                to=String.valueOf(first1.get().getMaxValue());
+                to = String.valueOf(first1.get().getMaxValue());
             }
         }
         return to;
@@ -207,7 +213,7 @@ public class S3Ops {
             final S3Object s3Object = getS3Object(dbName + AppStringUtils.FILE_DELIMITER + tableName + AppStringUtils.FILE_DELIMITER + archive + AppStringUtils.ARCHIVE_FILE_EXTENSION);
             final List<String> strings = s3ObjectContentToList(s3Object);
             final List<String> transform = AppStringUtils.csvListToSQLValuesList(strings);
-            if(transform.size()>1 && !StringUtils.isEmpty(transform.get(1))){
+            if (transform.size() > 1 && !StringUtils.isEmpty(transform.get(1))) {
                 final String insertRecord = String.format(AppStringUtils.INSERT_QUERY, tableName, transform.get(0), transform.get(1));
                 final int update = jdbcTemplate.update(insertRecord);
             }

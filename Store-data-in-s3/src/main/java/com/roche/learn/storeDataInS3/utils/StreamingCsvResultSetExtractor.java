@@ -2,12 +2,14 @@ package com.roche.learn.storeDataInS3.utils;
 
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.ResultSetExtractor;
+import org.springframework.util.StringUtils;
 
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Arrays;
 
 public class StreamingCsvResultSetExtractor implements ResultSetExtractor<Void> {
     private static char DELIMITER = ',';
@@ -31,7 +33,18 @@ public class StreamingCsvResultSetExtractor implements ResultSetExtractor<Void> 
             while (rs.next()) {
                 for (int i = 1; i <= columnCount; i++) {
                     Object value = rs.getObject(i);
-                    pw.write(value == null ? "''" : "'" + value.toString() + "'");
+                    if(value instanceof String && ((String) value).contains("'")){
+
+                       value= ((String) value).replaceAll("'","''");
+                    }
+                    if("''".equals(value)){
+                        pw.write("''");
+                    }else if(null==value){
+                        pw.write("null");
+                    }else {
+                        pw.write("'" + value.toString() + "'");
+                    }
+
                     if (i != columnCount) {
                         pw.append(DELIMITER);
                     }
