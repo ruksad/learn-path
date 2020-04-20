@@ -32,7 +32,7 @@ public class DbMetaData {
                 tableMetaData.setName(tableName);
                 List<ArchiveAttribute> archiveAbleAttributes = tableMetaData.getArchiveAbleAttributes();
                 archiveAbleAttributes.clear();
-                ResultSet columns = metaData.getColumns(null, null, tableName, null);
+                ResultSet columns = metaData.getColumns(catalog, null, tableName, null);
 
                 while (columns.next()) {
                     String column_name = columns.getString("COLUMN_NAME");
