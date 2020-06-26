@@ -97,7 +97,8 @@ public class S3Ops {
     private String getToValueIfEmpty(String tableName, String attributeName, String to, boolean isDateAttribute) {
         if (Objects.isNull(to)) {
             if (isDateAttribute) {
-                to = LocalDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME);
+
+                to = LocalDateTime.now().format(DateTimeFormatter.ofPattern(AppStringUtils.DATE_FORMAT_DB));
             } else {
                 final Optional<TableMetaData> first = metaData.getTableMetaData().stream().filter(x -> x.getName().equals(tableName)).findFirst();
                 final Optional<ArchiveAttribute> first1 = first.get().getArchiveAbleAttributes().stream().filter(x -> x.getName().equals(attributeName)).findFirst();
@@ -124,7 +125,7 @@ public class S3Ops {
 
             final List<String> collect = archives.stream().filter(x -> x.contains(tableName)).collect(Collectors.toList());
             if (!collect.isEmpty()) {
-                final String[] s = collect.get(collect.size() - 1).split("_");
+                final String[] s = collect.get(collect.size() - 1).split("__");
                 return Integer.valueOf(s[s.length - 1]) + 1;
             }
             return 1;
@@ -139,7 +140,7 @@ public class S3Ops {
         final ObjectMetadata objectMetadata = new ObjectMetadata();
         objectMetadata.setContentLength(bytes.length);
         uploadToS3UsingInputStream(folderName, byteArrayInputStream, objectMetadata);
-        log.info("back up file{} for table {} and db {}  uploaded  ", "Test file", folderName.split("_")[0], folderName.split("_")[1]);
+        log.info("back up file{} for table {} and db {}  uploaded  ", "Test file", folderName.split("__")[0], folderName.split("__")[1]);
     }
 
     private void uploadToS3UsingInputStream(String folderName, InputStream inputStream, ObjectMetadata objectMetadata) {
@@ -208,13 +209,13 @@ public class S3Ops {
     public boolean unArchive(String archive) throws IOException {
         if (metaData.getAvailableArchives().contains(archive)) {
             String dbName = metaData.getDataBaseName();
-            final String[] s = archive.split("_");
+            final String[] s = archive.split("__");
             String tableName = s[0];
             final S3Object s3Object = getS3Object(dbName + AppStringUtils.FILE_DELIMITER + tableName + AppStringUtils.FILE_DELIMITER + archive + AppStringUtils.ARCHIVE_FILE_EXTENSION);
             final List<String> strings = s3ObjectContentToList(s3Object);
             final List<String> transform = AppStringUtils.csvListToSQLValuesList(strings);
             if (transform.size() > 1 && !StringUtils.isEmpty(transform.get(1))) {
-                final String insertRecord = String.format(AppStringUtils.INSERT_QUERY, tableName, transform.get(0), transform.get(1));
+                final String insertRecord = String.format(AppStringUtils.INSERT_QUERY, dbName+"."+tableName, transform.get(0), transform.get(1));
                 final int update = jdbcTemplate.update(insertRecord);
             }
             deleteArchiveFromMetaDataFile(archive, dbName);

@@ -14,6 +14,7 @@ public class AppStringUtils {
 
     public static String RANGE_RECORDS_QUERY = "SELECT * FROM %s WHERE %s  BETWEEN '%s' AND '%s';";
     public static String DATE_FORMAT = "yyyy-MM-dd'T'HH:mm'Z'";
+    public static String DATE_FORMAT_DB= "yyyy-MM-dd";
     public static String DATE_RANGE_DELETE_RECORDS_QUERY = "DELETE FROM %s WHERE %s BETWEEN '%s' AND '%s'";
 
     public static String INSERT_QUERY = "INSERT INTO %s %s VALUES %s";
@@ -39,16 +40,16 @@ public class AppStringUtils {
     }
 
     private static String getDateFormatted(String from, String to, int version) {
-        return LocalDateTime.parse(from,DateTimeFormatter.ISO_DATE_TIME).format(DateTimeFormatter.ofPattern("yyyy-mm-dd")) + "_"
-                + LocalDateTime.parse(to,DateTimeFormatter.ISO_DATE_TIME).format(DateTimeFormatter.ofPattern("yyyy-mm-dd")) + "_" + version;
+        return from + "__"
+                + to + "__" + version;
     }
 
     public static String getArchiveName(String tableName, String from, String to, int version,boolean isDateAttribute) {
-        String archiveName=tableName + "_" ;
+        String archiveName=tableName + "__" ;
         if(isDateAttribute){
             return archiveName+ getDateFormatted(from, to, version);
         }else{
-            return archiveName+"IDRANGE_"+from+"_"+to+"_"+version;
+            return archiveName+"IDRANGE__"+from+"__"+to+"__"+version;
         }
     }
 

@@ -17,8 +17,8 @@ public class Utils {
         try (Statement statement = connection.createStatement()) {
             dbMetaData.getTableMetaData().forEach(table -> {
                 table.getArchiveAbleAttributes().forEach(attribute -> {
-                    String qfm = String.format(AppStringUtils.QUERY_MAX, attribute.getName(), table.getName());
-                    String qfMi = String.format(AppStringUtils.QUERY_MIN, attribute.getName(), table.getName());
+                    String qfm = String.format(AppStringUtils.QUERY_MAX, attribute.getName(), dbMetaData.getDataBaseName()+"."+table.getName());
+                    String qfMi = String.format(AppStringUtils.QUERY_MIN, attribute.getName(), dbMetaData.getDataBaseName()+"."+table.getName());
                     try {
                         ResultSet resultSet = statement.executeQuery(qfm);
                         while (resultSet.next()) {
@@ -53,7 +53,7 @@ public class Utils {
     private static String getStringFromDate(ResultSet resultSet) throws SQLException {
         final SimpleDateFormat df = new SimpleDateFormat(AppStringUtils.DATE_FORMAT);
         df.setTimeZone(TimeZone.getDefault());
-        return null == resultSet.getTimestamp(1) ? "" : df.format(resultSet.getTimestamp(1));
+        return null == resultSet.getTimestamp(1) ? "" : resultSet.getDate(1).toString();
     }
 
 }
