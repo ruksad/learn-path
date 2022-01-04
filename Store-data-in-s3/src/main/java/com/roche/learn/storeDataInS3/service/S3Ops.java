@@ -266,4 +266,17 @@ public class S3Ops {
     }
 
 
+    public static void main(String[] args) {
+       /* String timeZone = "Asia/Kolkata";
+        //String[] relativeDates = {"THIS--DAY", "LAST-5-DAY", "NEXT-1-MONTH", "NEXT-2-MONTH", "THIS--WEEK", "NEXT-1-WEEK", "LAST-1-WEEK", "LAST-2-WEEK", "LAST-3-WEEK", "LAST-4-WEEK", "THIS--MONTH", "LAST-1-MONTH", "LAST-2-MONTH", "LAST-3-MONTH", "LAST-4-MONTH", "LAST-5-MONTH"};
+        String[] relativeDates = {"TODAY", "YESTERDAY", "LAST_WEEK_START", "LAST_WEEK_END", "LAST_MONTH_START", "LAST_MONTH_END", "LAST_QUARTER_START", "LAST_QUARTER_END", "LAST_YEAR_START", "LAST_YEAR_END"};
+
+        RelativeDateUtil util = new RelativeDateUtil();
+
+        for(String dt:relativeDates) {
+            System.out.println(dt + " : " + util.getRelativeDate(dt, util.getDateTimeUsingZone(timeZone)));
+        }*/
+        //final String s = StringEscapeUtils.unescapeHtml("Pathgroup &amp;amp; labs");
+       // System.out.println("s"+s);
+    }
 }
