@@ -35,3 +35,4 @@ Store-data-in-s3/target/generated-sources/
 Testing_1.txt
 !/.idea/
 .idea
+**/target
