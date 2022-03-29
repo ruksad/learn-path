@@ -12,3 +12,4 @@ shows example of spring-data-jpa
 3. Embeddable
 4. pagination
 5. Fly-way
+6. 

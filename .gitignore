@@ -25,6 +25,7 @@ hs_err_pid*
 **\**.xml
 
 .idea/**.xml
+.idea/**.**
 !/.idea/**/**.xml
 Store-data-in-s3/.mvn/wrapper/maven-wrapper.properties
 Store-data-in-s3/HELP.md

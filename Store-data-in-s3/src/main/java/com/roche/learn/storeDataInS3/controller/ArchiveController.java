@@ -37,7 +37,7 @@ public class ArchiveController {
                                              @RequestParam(required = false) String to) throws FileNotFoundException {
 
 
-        log.info("archiving for table {} and attribute {} and for date from {}, to {}", tableName, attributeName, from, to);
+        //log.info("archiving for table {} and attribute {} and for date from {}, to {}", tableName, attributeName, from, to);
         s3Ops.runQuery(tableName, attributeName, from, to,isDateAttribute);
 
         return ResponseEntity.ok(Boolean.TRUE);
