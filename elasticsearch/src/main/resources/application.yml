@@ -1,0 +1,4 @@
+custom:
+  elastic-search-url: localhost:9200
+
+
