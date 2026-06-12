@@ -84,6 +84,27 @@ Same as other tests: proxies frontend requests to the Python backend.
 ### React Frontend
 Same UI as other tests: shows users, tasks, stats, and health.
 
+## Implementation Status
+
+### Phase 2 — Core Endpoints (complete)
+
+| Endpoint | Status |
+|---|---|
+| `POST /api/users` | Implemented — validates name, email format, role enum; 201 on success, 400 on bad input or duplicate email |
+| Request logging middleware | Implemented — logs method, path, status code, duration on every request |
+
+### Phase 4 — Code Quality (complete)
+
+| Area | Status |
+|---|---|
+| Unit tests (`tests/test_data_store.py`) | 16 tests — DataStore methods, thread-safety, edge cases |
+| Integration tests (`tests/test_api_users.py`) | 22 tests — happy path, all validation errors, duplicate email |
+| Integration tests (`tests/test_api_existing.py`) | 18 tests — health, GET users/tasks/stats, filters |
+| Error handling | HTTP 400 / 404 / 500 with consistent JSON shape; stack traces never exposed |
+| Documentation | API reference, error table, test instructions in `python-backend/README.md` |
+
+Run tests: `cd python-backend && python -m pytest tests/ -v`
+
 ## Test Requirements
 
-**📋 See [TEST_REQUIREMENTS.md](./TEST_REQUIREMENTS.md) for detailed Python test requirements and evaluation criteria.**
+**See [TEST_REQUIREMENTS.md](./TEST_REQUIREMENTS.md) for detailed Python test requirements and evaluation criteria.**

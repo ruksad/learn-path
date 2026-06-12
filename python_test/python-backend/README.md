@@ -1,12 +1,13 @@
-# Python Backend Test Project
+# Python Backend
 
-This is the **Python developer test project** backend. It mirrors the Python backend's API and behavior using **FastAPI**.
+FastAPI service that is the authoritative data source for the three-tier stack.
 
 ## Stack
 
-- Python 3.13 (works with 3.9+)
-- FastAPI
+- Python 3.9+ (developed on 3.12)
+- FastAPI 0.115
 - Uvicorn
+- Pydantic v2
 
 ## Project Structure
 
@@ -14,96 +15,158 @@ This is the **Python developer test project** backend. It mirrors the Python bac
 python-backend/
 ├── app/
 │   ├── __init__.py
-│   └── main.py          # FastAPI application
-├── requirements.txt      # Python dependencies
+│   └── main.py          # models, DataStore, middleware, routes
+├── tests/
+│   ├── conftest.py      # pytest fixtures (TestClient, fresh DataStore)
+│   ├── test_data_store.py   # unit tests — DataStore methods
+│   ├── test_api_users.py    # integration tests — POST /api/users
+│   └── test_api_existing.py # integration tests — read-only endpoints
+├── requirements.txt
 └── README.md
 ```
 
-## API Overview
-
-The Python backend exposes the same read-only endpoints as the Python backend:
-
-- `GET /health` – Health check
-- `GET /api/users` – Get all users
-- `GET /api/users/{id}` – Get a single user by ID
-- `GET /api/tasks` – Get tasks, supports filters:
-  - `GET /api/tasks?status=pending`
-  - `GET /api/tasks?userId=1`
-  - `GET /api/tasks?status=pending&userId=1`
-- `GET /api/stats` – Aggregate statistics for users and tasks
-
-Data is stored **in-memory** with a thread-safe `DataStore`, matching the Python backend's sample data and behavior.
-
-## Running the Python Backend
-
-From the repository root:
+## Running the Server
 
 ```bash
 cd python-backend
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-python -m app.main
+python -m app.main               # starts on http://localhost:8080
 ```
 
-The backend will start on:
-
-- `http://localhost:8080`
-
-You can override the port with the `PORT` environment variable:
+Override the port:
 
 ```bash
 PORT=8081 python -m app.main
 ```
 
-## Endpoints (Details)
+## Running Tests
+
+```bash
+cd python-backend
+source .venv/bin/activate
+python -m pytest tests/ -v
+```
+
+With coverage:
+
+```bash
+python -m pytest tests/ -v --cov=app --cov-report=term-missing
+```
+
+## API Reference
 
 ### `GET /health`
-- **Response**:
-  ```json
-  {"status": "ok", "message": "Python backend is running"}
-  ```
+
+```json
+{ "status": "ok", "message": "Python backend is running" }
+```
+
+---
 
 ### `GET /api/users`
-- **Response**:
-  ```json
-  {
-    "users": [ { "id": 1, "name": "John Doe", ... } ],
-    "count": 3
-  }
-  ```
+
+Returns all users.
+
+```json
+{
+  "users": [
+    { "id": 1, "name": "John Doe", "email": "john@example.com", "role": "developer" }
+  ],
+  "count": 1
+}
+```
+
+---
+
+### `POST /api/users`
+
+Creates a new user.
+
+**Request body:**
+
+| Field  | Type   | Required | Validation |
+|--------|--------|----------|------------|
+| `name` | string | yes      | Non-blank |
+| `email`| string | yes      | Valid email format; must be unique |
+| `role` | string | yes      | One of: `admin`, `designer`, `developer`, `manager`, `qa` |
+
+**Example request:**
+
+```json
+{ "name": "Alice", "email": "alice@example.com", "role": "developer" }
+```
+
+**201 Created — success:**
+
+```json
+{ "id": 4, "name": "Alice", "email": "alice@example.com", "role": "developer" }
+```
+
+**400 Bad Request — validation failure:**
+
+```json
+{ "detail": ["body -> email: email is not a valid email address"] }
+```
+
+**400 Bad Request — duplicate email:**
+
+```json
+{ "detail": "email 'alice@example.com' is already in use" }
+```
+
+---
 
 ### `GET /api/users/{id}`
-- Returns `404` if user is not found.
+
+Returns a single user.
+
+- `200` — user found
+- `404` — `{ "detail": "User not found" }`
+
+---
 
 ### `GET /api/tasks`
-- Query params:
-  - `status`: `"pending" | "in-progress" | "completed"`
-  - `userId`: integer user ID
+
+Returns tasks. Supports query filters:
+
+| Param    | Example       | Description |
+|----------|---------------|-------------|
+| `status` | `pending`     | Filter by status (`pending`, `in-progress`, `completed`) |
+| `userId` | `1`           | Filter by user ID |
+
+---
 
 ### `GET /api/stats`
-- **Response**:
-  ```json
-  {
-    "users": { "total": 3 },
-    "tasks": {
-      "total": 3,
-      "pending": 1,
-      "inProgress": 1,
-      "completed": 1
-    }
-  }
-  ```
 
-## For Python Candidates
+```json
+{
+  "users": { "total": 3 },
+  "tasks": { "total": 3, "pending": 1, "inProgress": 1, "completed": 1 }
+}
+```
 
-As a Python developer, you will primarily work in the `python-backend/` folder.
+## Error Handling
 
-Typical test tasks (analogous to the Python test) would be:
-- Implement `POST /api/users` – create user
-- Implement `POST /api/tasks` – create task
-- Implement `PUT /api/tasks/{id}` – update task
-- Add structured request logging
-- (Optionally) add persistence, validation middleware, etc.
+All errors follow a consistent shape:
 
-Focus on writing clean, idiomatic Python with FastAPI best practices.
+| Status | Meaning |
+|--------|---------|
+| `400`  | Invalid input or business rule violation (e.g. duplicate email) |
+| `404`  | Resource not found |
+| `500`  | Unhandled server error — detail is always `"Internal server error"` |
+
+Internal stack traces are never returned to the caller; they are logged server-side.
+
+## Request Logging
+
+Every request is logged in this format:
+
+```
+2026-06-12 10:23:01,412 INFO POST /api/users 201 3.2ms
+```
+
+Fields: `timestamp  LEVEL  METHOD  PATH  STATUS_CODE  DURATION_ms`
+
+Validation errors are logged at `WARNING` level. Unhandled exceptions are logged at `ERROR` level with a full traceback.
