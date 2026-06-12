@@ -35,10 +35,15 @@ pip install -r requirements.txt
 python -m app.main               # starts on http://localhost:8080
 ```
 
-Override the port:
+### Environment variables
+
+| Variable    | Default          | Description |
+|-------------|------------------|-------------|
+| `PORT`      | `8080`           | Port the server listens on |
+| `DATA_FILE` | `data/store.json`| Path for JSON persistence. Set to `""` to disable persistence and use in-memory seed data only |
 
 ```bash
-PORT=8081 python -m app.main
+PORT=8081 DATA_FILE=mydata.json python -m app.main
 ```
 
 ## Running Tests
@@ -59,8 +64,16 @@ python -m pytest tests/ -v --cov=app --cov-report=term-missing
 
 ### `GET /health`
 
+Returns live server state — no caching.
+
 ```json
-{ "status": "ok", "message": "Python backend is running" }
+{
+  "status": "ok",
+  "message": "Python backend is running",
+  "uptime_seconds": 142.3,
+  "store_users": 3,
+  "store_tasks": 5
+}
 ```
 
 ---
@@ -213,6 +226,30 @@ Returns tasks. Supports query filters:
   "tasks": { "total": 3, "pending": 1, "inProgress": 1, "completed": 1 }
 }
 ```
+
+## Phase 3 Features
+
+### Data Persistence
+
+All mutations (`POST /api/users`, `POST /api/tasks`, `PUT /api/tasks/{id}`) are written to a JSON file atomically after each change. On startup the server reads from this file; if the file is absent it falls back to in-memory seed data.
+
+Configure the path with `DATA_FILE` env var. Set to `""` to run fully in-memory (useful for tests or stateless deployments).
+
+### Stats Caching
+
+`GET /api/stats` results are cached in memory for **30 seconds**. The cache is immediately invalidated on any mutation (create user, create task, update task), so the stats are never stale after a write — only reads within the 30-second window after a mutation-free period can serve a cached value.
+
+### Content-Type Middleware
+
+`POST` and `PUT` requests without `Content-Type: application/json` are rejected with **HTTP 415** before reaching any route handler:
+
+```json
+{ "detail": "Content-Type must be application/json" }
+```
+
+`GET` requests are unaffected. All 415 rejections are logged at `WARNING` level.
+
+---
 
 ## Error Handling
 

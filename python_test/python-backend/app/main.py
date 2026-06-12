@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, field_validator
 from typing import List, Optional
 from threading import RLock
+import json
 import os
 import re
 import time
@@ -17,12 +18,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 8080
-
+_START_TIME = time.monotonic()
+_STATS_CACHE_TTL = 30.0  # seconds
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _VALID_ROLES = {"developer", "designer", "manager", "admin", "qa"}
 _VALID_STATUSES = {"pending", "in-progress", "completed"}
 
+
+# ---------------------------------------------------------------------------
+# Models
+# ---------------------------------------------------------------------------
 
 class User(BaseModel):
     id: int
@@ -154,11 +160,19 @@ class StatsResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     message: str
+    uptime_seconds: float
+    store_users: int
+    store_tasks: int
 
+
+# ---------------------------------------------------------------------------
+# DataStore
+# ---------------------------------------------------------------------------
 
 class DataStore:
     def __init__(self) -> None:
         self._lock = RLock()
+        self._data_file: str = os.getenv("DATA_FILE", "data/store.json")
         self._users: List[User] = [
             User(id=1, name="John Doe", email="john@example.com", role="developer"),
             User(id=2, name="Jane Smith", email="jane@example.com", role="designer"),
@@ -169,6 +183,52 @@ class DataStore:
             Task(id=2, title="Design user interface", status="in-progress", userId=2),
             Task(id=3, title="Review code changes", status="completed", userId=3),
         ]
+        self._stats_cache: Optional[StatsResponse] = None
+        self._stats_cache_expiry: float = 0.0
+        self._load()
+
+    # --- persistence --------------------------------------------------------
+
+    def _load(self) -> None:
+        if not self._data_file or not os.path.exists(self._data_file):
+            return
+        try:
+            with open(self._data_file, "r") as f:
+                data = json.load(f)
+            self._users = [User(**u) for u in data.get("users", [])]
+            self._tasks = [Task(**t) for t in data.get("tasks", [])]
+            logger.info("Loaded persisted data from %s", self._data_file)
+        except Exception:
+            logger.warning("Could not load %s — using seed data", self._data_file, exc_info=True)
+
+    def _save(self) -> None:
+        """Write current state to disk. Must be called while holding self._lock."""
+        if not self._data_file:
+            return
+        try:
+            directory = os.path.dirname(self._data_file)
+            if directory:
+                os.makedirs(directory, exist_ok=True)
+            with open(self._data_file, "w") as f:
+                json.dump(
+                    {
+                        "users": [u.model_dump() for u in self._users],
+                        "tasks": [t.model_dump() for t in self._tasks],
+                    },
+                    f,
+                    indent=2,
+                )
+        except Exception:
+            logger.error("Failed to persist data to %s", self._data_file, exc_info=True)
+
+    # --- cache --------------------------------------------------------------
+
+    def _invalidate_stats_cache(self) -> None:
+        """Expire cached stats. Must be called while holding self._lock."""
+        self._stats_cache = None
+        self._stats_cache_expiry = 0.0
+
+    # --- users --------------------------------------------------------------
 
     def create_user(self, name: str, email: str, role: str) -> User:
         with self._lock:
@@ -178,6 +238,8 @@ class DataStore:
             new_id = max((u.id for u in self._users), default=0) + 1
             user = User(id=new_id, name=name, email=email, role=role)
             self._users.append(user)
+            self._invalidate_stats_cache()
+            self._save()
             return user
 
     def get_users(self) -> List[User]:
@@ -191,6 +253,8 @@ class DataStore:
                     return user
         return None
 
+    # --- tasks --------------------------------------------------------------
+
     def create_task(self, title: str, status: str, user_id: int) -> Task:
         with self._lock:
             if not any(u.id == user_id for u in self._users):
@@ -198,6 +262,8 @@ class DataStore:
             new_id = max((t.id for t in self._tasks), default=0) + 1
             task = Task(id=new_id, title=title, status=status, userId=user_id)
             self._tasks.append(task)
+            self._invalidate_stats_cache()
+            self._save()
             return task
 
     def update_task(
@@ -222,6 +288,8 @@ class DataStore:
                     updates["userId"] = user_id
                 updated = task.model_copy(update=updates)
                 self._tasks[i] = updated
+                self._invalidate_stats_cache()
+                self._save()
                 return updated
             return None
 
@@ -243,6 +311,10 @@ class DataStore:
 
     def get_stats(self) -> StatsResponse:
         with self._lock:
+            now = time.monotonic()
+            if self._stats_cache is not None and now < self._stats_cache_expiry:
+                return self._stats_cache
+
             users_total = len(self._users)
             tasks_total = len(self._tasks)
             pending = in_progress = completed = 0
@@ -254,7 +326,7 @@ class DataStore:
                 elif task.status == "completed":
                     completed += 1
 
-            return StatsResponse(
+            result = StatsResponse(
                 users=UsersStats(total=users_total),
                 tasks=TasksStats(
                     total=tasks_total,
@@ -263,7 +335,14 @@ class DataStore:
                     completed=completed,
                 ),
             )
+            self._stats_cache = result
+            self._stats_cache_expiry = now + _STATS_CACHE_TTL
+            return result
 
+
+# ---------------------------------------------------------------------------
+# App & middleware
+# ---------------------------------------------------------------------------
 
 store = DataStore()
 app = FastAPI(title="Python Backend Test Project")
@@ -287,8 +366,25 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
 @app.exception_handler(Exception)
 async def unhandled_error_handler(request: Request, exc: Exception):
     # Log full traceback but never expose internal detail to callers.
-    logger.error("Unhandled error on %s %s", request.method, request.url.path, exc_info=exc) # TODO: Request body can be logged here for better context
+    logger.error("Unhandled error on %s %s", request.method, request.url.path, exc_info=exc)
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
+
+# Defined first so log_requests (defined next) wraps it — 415 responses are logged.
+@app.middleware("http")
+async def require_json_content_type(request: Request, call_next):
+    if request.method in ("POST", "PUT"):
+        ct = request.headers.get("content-type", "")
+        if not ct.startswith("application/json"):
+            logger.warning(
+                "Rejected %s %s — Content-Type '%s' is not application/json",
+                request.method, request.url.path, ct,
+            )
+            return JSONResponse(
+                status_code=415,
+                content={"detail": "Content-Type must be application/json"},
+            )
+    return await call_next(request)
 
 
 @app.middleware("http")
@@ -306,9 +402,19 @@ async def log_requests(request: Request, call_next):
     return response
 
 
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
 @app.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
-    return HealthResponse(status="ok", message="Python backend is running")
+    return HealthResponse(
+        status="ok",
+        message="Python backend is running",
+        uptime_seconds=round(time.monotonic() - _START_TIME, 1),
+        store_users=len(store.get_users()),
+        store_tasks=len(store.get_tasks()),
+    )
 
 
 @app.post("/api/users", response_model=User, status_code=201)
@@ -370,6 +476,10 @@ async def update_task(task_id: int, body: UpdateTaskRequest) -> Task:
 async def get_stats() -> StatsResponse:
     return store.get_stats()
 
+
+# ---------------------------------------------------------------------------
+# Startup
+# ---------------------------------------------------------------------------
 
 def get_port() -> int:
     port_str = os.getenv("PORT", str(DEFAULT_PORT))

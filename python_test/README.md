@@ -95,6 +95,15 @@ Same UI as other tests: shows users, tasks, stats, and health.
 | `PUT /api/tasks/{id}` | Implemented — partial update; 200 on success, 404 if not found, 400 on bad input |
 | Request logging middleware | Implemented — logs method, path, status code, duration on every request |
 
+### Phase 3 — Advanced Features (complete)
+
+| Feature | Status |
+|---|---|
+| JSON persistence (`DATA_FILE` env var, survives restart) | Done |
+| Stats caching with 30s TTL, invalidated on every mutation | Done |
+| Content-Type middleware — rejects non-JSON `POST`/`PUT` with 415 | Done |
+| Enhanced health check — uptime, live user/task counts | Done |
+
 ### Phase 4 — Code Quality (complete)
 
 | Area | Status |

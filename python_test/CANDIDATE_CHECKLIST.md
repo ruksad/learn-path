@@ -110,5 +110,5 @@ Use this checklist to track your progress through the **Python developer** test.
 Use this space to track any issues, questions, or design decisions:
 
 ```
-[Your notes here]
+[python_backend/app/main.py The file is intentionally kept simple for this scale. The natural next split would be extracting routes and the DataStore into separate modules as new resources are added.]
 ```
