@@ -3,14 +3,18 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 import app.main as main_module
-from app.main import app, DataStore
+from app.main import app, DataStore, MetricsCollector
 
 
 @pytest.fixture()
 def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    """Each test gets a fresh in-memory DataStore with persistence disabled."""
+    """Fresh in-memory store, clean metrics, no persistence, no auth, no rate limit."""
     monkeypatch.setenv("DATA_FILE", "")
+    monkeypatch.setenv("API_KEYS", "")
+    monkeypatch.setenv("RATE_LIMIT_REQUESTS", "0")
     monkeypatch.setattr(main_module, "store", DataStore())
+    monkeypatch.setattr(main_module, "metrics", MetricsCollector())
+    monkeypatch.setattr(main_module, "_rate_buckets", {})
     return TestClient(app)
 
 

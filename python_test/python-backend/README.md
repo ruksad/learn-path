@@ -37,13 +37,22 @@ python -m app.main               # starts on http://localhost:8080
 
 ### Environment variables
 
-| Variable    | Default          | Description |
-|-------------|------------------|-------------|
-| `PORT`      | `8080`           | Port the server listens on |
-| `DATA_FILE` | `data/store.json`| Path for JSON persistence. Set to `""` to disable persistence and use in-memory seed data only |
+| Variable               | Default           | Description |
+|------------------------|-------------------|-------------|
+| `PORT`                 | `8080`            | Port the server listens on |
+| `DATA_FILE`            | `data/store.json` | JSON persistence path. Set to `""` to disable (in-memory only) |
+| `DATABASE_URL`         | _(unset)_         | Use SQLite backend: `sqlite:///path/to/db.sqlite` or `sqlite:///:memory:` |
+| `API_KEYS`             | _(unset)_         | Comma-separated valid API keys. Unset = auth disabled |
+| `RATE_LIMIT_REQUESTS`  | `0`               | Max requests per IP per window. `0` = disabled |
+| `RATE_LIMIT_WINDOW`    | `60`              | Sliding window size in seconds |
 
 ```bash
-PORT=8081 DATA_FILE=mydata.json python -m app.main
+# Full production-like startup
+DATABASE_URL=sqlite:///data/store.db \
+API_KEYS=mykey123,anotherkey \
+RATE_LIMIT_REQUESTS=100 \
+RATE_LIMIT_WINDOW=60 \
+python -m app.main
 ```
 
 ## Running Tests
@@ -226,6 +235,101 @@ Returns tasks. Supports query filters:
   "tasks": { "total": 3, "pending": 1, "inProgress": 1, "completed": 1 }
 }
 ```
+
+## Phase 5 Features
+
+### Authentication — API Keys
+
+Set `API_KEYS` to a comma-separated list of valid keys. When set, all `/api/*` routes require an `X-API-Key` header. `/health` and `/metrics` are always public.
+
+| Scenario | Status |
+|---|---|
+| Missing `X-API-Key` header | **401** `{ "detail": "Missing X-API-Key header" }` |
+| Wrong key | **403** `{ "detail": "Invalid API key" }` |
+| Valid key | Request proceeds normally |
+| `API_KEYS` not set | Auth disabled — all requests allowed |
+
+```bash
+# Enable auth with two keys
+API_KEYS=key-abc-123,key-xyz-456 python -m app.main
+```
+
+```
+curl -H "X-API-Key: key-abc-123" http://localhost:8080/api/users
+```
+
+---
+
+### Rate Limiting — Per-IP Sliding Window
+
+Set `RATE_LIMIT_REQUESTS` to the max allowed requests per IP within `RATE_LIMIT_WINDOW` seconds.
+
+```bash
+# 100 requests per minute per IP
+RATE_LIMIT_REQUESTS=100 RATE_LIMIT_WINDOW=60 python -m app.main
+```
+
+When a client exceeds the limit it receives:
+
+```
+HTTP 429 Too Many Requests
+Retry-After: 60
+
+{ "detail": "Too many requests — please slow down" }
+```
+
+`RATE_LIMIT_REQUESTS=0` (the default) disables rate limiting entirely.
+
+---
+
+### Metrics Endpoint — `GET /metrics`
+
+Always public (no API key required). Returns live counters and timing stats:
+
+```json
+{
+  "uptime_seconds": 142.3,
+  "requests": {
+    "total_requests": 250,
+    "by_status": { "200": 210, "201": 18, "400": 12, "404": 5, "429": 5 },
+    "by_method": { "GET": 185, "POST": 50, "PUT": 15 },
+    "errors_4xx": 22,
+    "errors_5xx": 0,
+    "response_times_ms": {
+      "avg": 2.4,
+      "min": 0.5,
+      "max": 48.1,
+      "samples": 250
+    }
+  },
+  "store": {
+    "users": 5,
+    "tasks": 12
+  }
+}
+```
+
+Metrics include all responses — 401, 403, 415, 429 — not just successful ones.
+
+---
+
+### Database Integration — SQLite
+
+Set `DATABASE_URL` to switch from JSON-file persistence to a full SQLite database:
+
+```bash
+DATABASE_URL=sqlite:///data/store.db python -m app.main
+```
+
+| `DATABASE_URL` value | Backend used |
+|---|---|
+| _(unset)_ | In-memory `DataStore` with optional JSON file via `DATA_FILE` |
+| `sqlite:///path/to/db` | `SQLiteDataStore` — file-based SQLite |
+| `sqlite:///:memory:` | `SQLiteDataStore` — in-memory SQLite (useful for testing) |
+
+`SQLiteDataStore` is a drop-in replacement for `DataStore` — same public interface, same seed data, same caching behaviour. SQLite is configured with `WAL` journal mode for concurrent reads and `PRAGMA foreign_keys=ON` for referential integrity.
+
+---
 
 ## Phase 3 Features
 

@@ -95,6 +95,15 @@ Same UI as other tests: shows users, tasks, stats, and health.
 | `PUT /api/tasks/{id}` | Implemented — partial update; 200 on success, 404 if not found, 400 on bad input |
 | Request logging middleware | Implemented — logs method, path, status code, duration on every request |
 
+### Phase 5 — Bonus Features (complete)
+
+| Feature | Status |
+|---|---|
+| API key authentication (`API_KEYS` env var, `X-API-Key` header, 401/403) | Done |
+| Per-IP rate limiting (`RATE_LIMIT_REQUESTS`/`RATE_LIMIT_WINDOW`, 429 + `Retry-After`) | Done |
+| Metrics endpoint (`GET /metrics` — counters, status breakdown, response times) | Done |
+| SQLite database integration (`DATABASE_URL=sqlite:///…`, drop-in store replacement) | Done |
+
 ### Phase 3 — Advanced Features (complete)
 
 | Feature | Status |
