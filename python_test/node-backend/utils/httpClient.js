@@ -17,6 +17,7 @@ function makeRequest(path, options = {}) {
       method: options.method || 'GET',
       headers: {
         'Content-Type': 'application/json',
+        ...(config.API_KEY ? { 'X-API-Key': config.API_KEY } : {}),
         ...options.headers
       }
     };
@@ -38,7 +39,12 @@ function makeRequest(path, options = {}) {
           let errorMessage = data;
           try {
             const errorData = JSON.parse(data);
-            errorMessage = errorData.error || errorData.message || data;
+            // Support Python's {"detail": "..."} and Node's {"error": "..."}
+            const detail = errorData.detail;
+            errorMessage = (Array.isArray(detail) ? detail.join('; ') : detail)
+              || errorData.error
+              || errorData.message
+              || data;
           } catch (e) {
             // Keep original error message if not JSON
           }

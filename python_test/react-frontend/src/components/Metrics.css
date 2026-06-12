@@ -1,0 +1,160 @@
+.metrics-panel {
+  background: white;
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08);
+  margin-bottom: 20px;
+}
+
+.metrics-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.metrics-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: #37474f;
+}
+
+.metrics-refresh-btn {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 2px 10px;
+  font-size: 1rem;
+  cursor: pointer;
+  color: #555;
+  transition: background 0.15s;
+}
+
+.metrics-refresh-btn:hover:not(:disabled) {
+  background: #f5f5f5;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.metric-card {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: center;
+  border-top: 3px solid #90caf9;
+}
+
+.metric-card.error       { border-top-color: #ff8a65; }
+.metric-card.error-5     { border-top-color: #ef5350; }
+.metric-card.uptime      { border-top-color: #81c784; }
+
+.metric-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #263238;
+}
+
+.metric-label {
+  font-size: 0.72rem;
+  color: #78909c;
+  margin-top: 2px;
+}
+
+.metrics-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.metrics-group {
+  flex: 1;
+  min-width: 140px;
+}
+
+.metrics-group h4 {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  color: #78909c;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.time-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.time-pill {
+  font-size: 0.78rem;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.time-pill.avg { background: #e3f2fd; color: #1565c0; }
+.time-pill.min { background: #e8f5e9; color: #2e7d32; }
+.time-pill.max { background: #fff3e0; color: #e65100; }
+
+.bar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+}
+
+.bar-label {
+  width: 36px;
+  font-weight: 600;
+  color: #455a64;
+}
+
+.bar-track {
+  flex: 1;
+  background: #eceff1;
+  border-radius: 4px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  background: #42a5f5;
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+.bar-count {
+  width: 24px;
+  text-align: right;
+  color: #78909c;
+}
+
+.status-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.status-pill {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.status-pill.status-2xx { background: #e8f5e9; color: #2e7d32; }
+.status-pill.status-3xx { background: #e3f2fd; color: #1565c0; }
+.status-pill.status-4xx { background: #fff3e0; color: #e65100; }
+.status-pill.status-5xx { background: #ffebee; color: #c62828; }

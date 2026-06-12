@@ -1,13 +1,35 @@
 .health-status {
   background: white;
-  padding: 15px 20px;
+  padding: 12px 20px;
   border-radius: 10px;
   margin-bottom: 20px;
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 6px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   font-weight: 500;
+}
+
+.health-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.health-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-left: 2px;
+}
+
+.health-pill {
+  font-size: 0.75rem;
+  font-weight: 400;
+  background: #f0f0f0;
+  color: #555;
+  padding: 2px 8px;
+  border-radius: 10px;
 }
 
 .health-status.healthy {

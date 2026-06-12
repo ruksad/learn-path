@@ -1,16 +1,23 @@
 import { useState, useEffect } from 'react'
 import './App.css'
-import { getUsers, getUserById, getTasks, getStats, checkHealth } from './services/api'
+import {
+  getUsers, getUserById, getTasks, getStats, checkHealth, getMetrics,
+  createUser, createTask, updateTask
+} from './services/api'
 import UserList from './components/UserList'
 import TaskList from './components/TaskList'
 import Stats from './components/Stats'
 import HealthStatus from './components/HealthStatus'
+import CreateUserForm from './components/CreateUserForm'
+import CreateTaskForm from './components/CreateTaskForm'
+import Metrics from './components/Metrics'
 
 function App() {
   const [users, setUsers] = useState([])
   const [tasks, setTasks] = useState([])
   const [stats, setStats] = useState(null)
   const [health, setHealth] = useState(null)
+  const [metrics, setMetrics] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [selectedUserId, setSelectedUserId] = useState(null)
@@ -25,26 +32,55 @@ function App() {
     setLoading(true)
     setError(null)
     try {
-      // Check health first
       const healthData = await checkHealth()
       setHealth(healthData)
 
-      // Load data in parallel
-      const [usersData, tasksData, statsData] = await Promise.all([
+      const [usersData, tasksData, statsData, metricsData] = await Promise.all([
         getUsers(),
         getTasks(),
-        getStats()
+        getStats(),
+        getMetrics().catch(() => null),
       ])
 
       setUsers(usersData.users || [])
       setTasks(tasksData.tasks || [])
       setStats(statsData)
+      setMetrics(metricsData)
     } catch (err) {
       setError(err.message || 'Failed to load data')
       console.error('Error loading data:', err)
     } finally {
       setLoading(false)
     }
+  }
+
+  const refreshStats = async () => {
+    try {
+      const [statsData, metricsData] = await Promise.all([
+        getStats(),
+        getMetrics().catch(() => null),
+      ])
+      setStats(statsData)
+      setMetrics(metricsData)
+    } catch (err) {
+      console.error('Error refreshing stats:', err)
+    }
+  }
+
+  const handleUserCreated = async (newUser) => {
+    setUsers((prev) => [...prev, newUser])
+    await refreshStats()
+  }
+
+  const handleTaskCreated = async (newTask) => {
+    setTasks((prev) => [...prev, newTask])
+    await refreshStats()
+  }
+
+  const handleTaskUpdated = (updatedTask) => {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === updatedTask.id ? updatedTask : t))
+    )
   }
 
   const handleUserSelect = async (userId) => {
@@ -54,7 +90,6 @@ function App() {
     try {
       const user = await getUserById(userId)
       setSelectedUser(user)
-      // Also filter tasks for this user
       const userTasks = await getTasks('', userId.toString())
       setTasks(userTasks.tasks || [])
     } catch (err) {
@@ -96,6 +131,13 @@ function App() {
 
       <HealthStatus health={health} />
 
+      {metrics && (
+        <Metrics metrics={metrics} onRefresh={async () => {
+          const m = await getMetrics().catch(() => null)
+          setMetrics(m)
+        }} />
+      )}
+
       {error && (
         <div className="error-banner">
           <span>⚠️ {error}</span>
@@ -111,6 +153,7 @@ function App() {
         <div className="data-section">
           <div className="panel">
             <h2>Users</h2>
+            <CreateUserForm onCreated={handleUserCreated} />
             {loading && !users.length ? (
               <div className="loading">Loading users...</div>
             ) : (
@@ -162,10 +205,11 @@ function App() {
                 </button>
               </div>
             </div>
+            <CreateTaskForm users={users} onCreated={handleTaskCreated} />
             {loading && !tasks.length ? (
               <div className="loading">Loading tasks...</div>
             ) : (
-              <TaskList tasks={tasks} />
+              <TaskList tasks={tasks} onTaskUpdated={handleTaskUpdated} />
             )}
           </div>
         </div>
@@ -173,7 +217,7 @@ function App() {
 
       <footer className="app-footer">
         <button onClick={handleRefresh} className="refresh-btn">
-          🔄 Refresh All Data
+          Refresh All Data
         </button>
       </footer>
     </div>

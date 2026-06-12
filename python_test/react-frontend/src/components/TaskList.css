@@ -42,9 +42,21 @@
   white-space: nowrap;
 }
 
+.task-status-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
 .task-footer {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   font-size: 0.85rem;
   color: #666;
   margin-top: 8px;
@@ -55,6 +67,48 @@
 .task-id,
 .task-user {
   font-weight: 500;
+  white-space: nowrap;
+}
+
+.status-select-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-size: 0.8rem;
+}
+
+.status-select {
+  padding: 2px 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  background: #fff;
+}
+
+.status-select:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.updating-indicator {
+  font-size: 0.75rem;
+  color: #888;
+  font-style: italic;
+}
+
+.task-card.updating {
+  opacity: 0.7;
+}
+
+.task-error {
+  font-size: 0.78rem;
+  color: #c62828;
+  background: #ffebee;
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  margin: 6px 0 0;
 }
 
 .empty-state {

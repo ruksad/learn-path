@@ -10,46 +10,50 @@ const apiClient = axios.create({
   },
 })
 
-// Request interceptor for logging
 apiClient.interceptors.request.use(
   (config) => {
     console.log(`Making ${config.method.toUpperCase()} request to ${config.url}`)
     return config
   },
-  (error) => {
-    return Promise.reject(error)
-  }
+  (error) => Promise.reject(error)
 )
 
-// Response interceptor for error handling
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response) {
-      // Server responded with error status
-      throw new Error(
-        error.response.data?.error || 
-        error.response.data?.message || 
-        `Request failed with status ${error.response.status}`
-      )
+      const data = error.response.data
+      // Handle Python's {"detail": "..."} and {"detail": [...]} as well as {"error": "..."}
+      let message
+      if (data?.detail) {
+        message = Array.isArray(data.detail)
+          ? data.detail.join('\n')
+          : data.detail
+      } else {
+        message = data?.error || data?.message || `Request failed with status ${error.response.status}`
+      }
+      throw new Error(message)
     } else if (error.request) {
-      // Request was made but no response received
       throw new Error('No response from server. Is the Node.js backend running?')
     } else {
-      // Something else happened
       throw new Error(error.message || 'An unexpected error occurred')
     }
   }
 )
 
+// ── Health & metrics ──────────────────────────────────────────────────────
+
 export const checkHealth = async () => {
-  try {
-    const response = await apiClient.get('/health')
-    return response.data
-  } catch (error) {
-    throw new Error(`Health check failed: ${error.message}`)
-  }
+  const response = await apiClient.get('/health')
+  return response.data
 }
+
+export const getMetrics = async () => {
+  const response = await apiClient.get('/api/metrics')
+  return response.data
+}
+
+// ── Users ─────────────────────────────────────────────────────────────────
 
 export const getUsers = async () => {
   const response = await apiClient.get('/api/users')
@@ -61,19 +65,32 @@ export const getUserById = async (id) => {
   return response.data
 }
 
+export const createUser = async ({ name, email, role }) => {
+  const response = await apiClient.post('/api/users', { name, email, role })
+  return response.data
+}
+
+// ── Tasks ─────────────────────────────────────────────────────────────────
+
 export const getTasks = async (status = '', userId = '') => {
   const params = {}
   if (status) params.status = status
   if (userId) params.userId = userId
-  
   const response = await apiClient.get('/api/tasks', { params })
   return response.data
 }
 
-export const getTaskById = async (id) => {
-  const response = await apiClient.get(`/api/tasks/${id}`)
+export const createTask = async ({ title, status, userId }) => {
+  const response = await apiClient.post('/api/tasks', { title, status, userId })
   return response.data
 }
+
+export const updateTask = async (id, fields) => {
+  const response = await apiClient.put(`/api/tasks/${id}`, fields)
+  return response.data
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────
 
 export const getStats = async () => {
   const response = await apiClient.get('/api/stats')
