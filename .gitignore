@@ -37,3 +37,11 @@ Testing_1.txt
 !/.idea/
 .idea
 **/target
+
+**/node_modules
+**/dist
+**/build
+**/out
+**/coverage
+**/.vscode
+**/.venv
