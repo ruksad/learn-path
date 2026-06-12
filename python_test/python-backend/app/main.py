@@ -287,7 +287,7 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
 @app.exception_handler(Exception)
 async def unhandled_error_handler(request: Request, exc: Exception):
     # Log full traceback but never expose internal detail to callers.
-    logger.error("Unhandled error on %s %s", request.method, request.url.path, exc_info=exc)
+    logger.error("Unhandled error on %s %s", request.method, request.url.path, exc_info=exc) # TODO: Request body can be logged here for better context
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
