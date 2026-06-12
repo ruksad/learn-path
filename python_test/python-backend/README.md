@@ -127,6 +127,73 @@ Returns a single user.
 
 ---
 
+### `POST /api/tasks`
+
+Creates a new task.
+
+**Request body:**
+
+| Field    | Type    | Required | Validation |
+|----------|---------|----------|------------|
+| `title`  | string  | yes      | Non-blank |
+| `status` | string  | yes      | One of: `completed`, `in-progress`, `pending` |
+| `userId` | integer | yes      | Positive integer; must reference an existing user |
+
+**Example request:**
+
+```json
+{ "title": "Write unit tests", "status": "pending", "userId": 1 }
+```
+
+**201 Created — success:**
+
+```json
+{ "id": 4, "title": "Write unit tests", "status": "pending", "userId": 1 }
+```
+
+**400 Bad Request — invalid status:**
+
+```json
+{ "detail": ["body -> status: status must be one of: completed, in-progress, pending"] }
+```
+
+**400 Bad Request — unknown userId:**
+
+```json
+{ "detail": "user with id 99 does not exist" }
+```
+
+---
+
+### `PUT /api/tasks/{id}`
+
+Partially updates an existing task. All fields are optional — omitted fields keep their current value.
+
+**Request body (all optional):**
+
+| Field    | Type    | Validation when provided |
+|----------|---------|--------------------------|
+| `title`  | string  | Non-blank |
+| `status` | string  | One of: `completed`, `in-progress`, `pending` |
+| `userId` | integer | Must reference an existing user |
+
+**Example — update status only:**
+
+```json
+{ "status": "completed" }
+```
+
+**200 OK — success:**
+
+```json
+{ "id": 1, "title": "Implement authentication", "status": "completed", "userId": 1 }
+```
+
+- `404` — `{ "detail": "Task not found" }` if `id` does not exist
+- `400` — validation error if a provided field is invalid
+
+---
+
 ### `GET /api/tasks`
 
 Returns tasks. Supports query filters:

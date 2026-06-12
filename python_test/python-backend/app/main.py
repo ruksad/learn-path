@@ -21,6 +21,7 @@ DEFAULT_PORT = 8080
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _VALID_ROLES = {"developer", "designer", "manager", "admin", "qa"}
+_VALID_STATUSES = {"pending", "in-progress", "completed"}
 
 
 class User(BaseModel):
@@ -65,6 +66,63 @@ class Task(BaseModel):
     title: str
     status: str
     userId: int
+
+
+class CreateTaskRequest(BaseModel):
+    title: str
+    status: str
+    userId: int
+
+    @field_validator("title")
+    @classmethod
+    def title_not_empty(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("title must not be blank")
+        return v
+
+    @field_validator("status")
+    @classmethod
+    def status_valid(cls, v: str) -> str:
+        if v not in _VALID_STATUSES:
+            raise ValueError(f"status must be one of: {', '.join(sorted(_VALID_STATUSES))}")
+        return v
+
+    @field_validator("userId")
+    @classmethod
+    def user_id_positive(cls, v: int) -> int:
+        if v <= 0:
+            raise ValueError("userId must be a positive integer")
+        return v
+
+
+class UpdateTaskRequest(BaseModel):
+    title: Optional[str] = None
+    status: Optional[str] = None
+    userId: Optional[int] = None
+
+    @field_validator("title")
+    @classmethod
+    def title_not_empty(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            v = v.strip()
+            if not v:
+                raise ValueError("title must not be blank")
+        return v
+
+    @field_validator("status")
+    @classmethod
+    def status_valid(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in _VALID_STATUSES:
+            raise ValueError(f"status must be one of: {', '.join(sorted(_VALID_STATUSES))}")
+        return v
+
+    @field_validator("userId")
+    @classmethod
+    def user_id_positive(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v <= 0:
+            raise ValueError("userId must be a positive integer")
+        return v
 
 
 class UsersResponse(BaseModel):
@@ -132,6 +190,40 @@ class DataStore:
                 if user.id == user_id:
                     return user
         return None
+
+    def create_task(self, title: str, status: str, user_id: int) -> Task:
+        with self._lock:
+            if not any(u.id == user_id for u in self._users):
+                raise ValueError(f"user with id {user_id} does not exist")
+            new_id = max((t.id for t in self._tasks), default=0) + 1
+            task = Task(id=new_id, title=title, status=status, userId=user_id)
+            self._tasks.append(task)
+            return task
+
+    def update_task(
+        self,
+        task_id: int,
+        title: Optional[str],
+        status: Optional[str],
+        user_id: Optional[int],
+    ) -> Optional[Task]:
+        with self._lock:
+            for i, task in enumerate(self._tasks):
+                if task.id != task_id:
+                    continue
+                if user_id is not None and not any(u.id == user_id for u in self._users):
+                    raise ValueError(f"user with id {user_id} does not exist")
+                updates: dict = {}
+                if title is not None:
+                    updates["title"] = title
+                if status is not None:
+                    updates["status"] = status
+                if user_id is not None:
+                    updates["userId"] = user_id
+                updated = task.model_copy(update=updates)
+                self._tasks[i] = updated
+                return updated
+            return None
 
     def get_tasks(self, status: str = "", user_id: str = "") -> List[Task]:
         with self._lock:
@@ -242,10 +334,36 @@ async def get_user_by_id(user_id: int) -> User:
     return user
 
 
+@app.post("/api/tasks", response_model=Task, status_code=201)
+async def create_task(body: CreateTaskRequest) -> Task:
+    """Create a new task. Returns 400 if userId does not exist or input is invalid."""
+    try:
+        return store.create_task(title=body.title, status=body.status, user_id=body.userId)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @app.get("/api/tasks", response_model=TasksResponse)
 async def get_tasks(status: str = "", userId: str = "") -> TasksResponse:  # noqa: N803
     tasks = store.get_tasks(status=status, user_id=userId)
     return TasksResponse(tasks=tasks, count=len(tasks))
+
+
+@app.put("/api/tasks/{task_id}", response_model=Task)
+async def update_task(task_id: int, body: UpdateTaskRequest) -> Task:
+    """Partially update a task. Returns 404 if task not found, 400 for invalid fields."""
+    try:
+        updated = store.update_task(
+            task_id=task_id,
+            title=body.title,
+            status=body.status,
+            user_id=body.userId,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return updated
 
 
 @app.get("/api/stats", response_model=StatsResponse)

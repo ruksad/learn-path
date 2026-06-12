@@ -110,3 +110,94 @@ def test_get_stats_task_counts_sum_to_total(fresh_store: DataStore) -> None:
     stats = fresh_store.get_stats()
     t = stats.tasks
     assert t.pending + t.inProgress + t.completed == t.total
+
+
+# ---------------------------------------------------------------------------
+# create_task
+# ---------------------------------------------------------------------------
+
+def test_create_task_returns_task_with_id(fresh_store: DataStore) -> None:
+    task = fresh_store.create_task("Do something", "pending", user_id=1)
+    assert task.id > 0
+    assert task.title == "Do something"
+    assert task.status == "pending"
+    assert task.userId == 1
+
+
+def test_create_task_id_greater_than_existing_max(fresh_store: DataStore) -> None:
+    existing_max = max(t.id for t in fresh_store.get_tasks())
+    task = fresh_store.create_task("New", "pending", user_id=1)
+    assert task.id == existing_max + 1
+
+
+def test_create_task_increments_id_sequentially(fresh_store: DataStore) -> None:
+    t1 = fresh_store.create_task("A", "pending", user_id=1)
+    t2 = fresh_store.create_task("B", "in-progress", user_id=1)
+    assert t2.id == t1.id + 1
+
+
+def test_create_task_nonexistent_user_raises(fresh_store: DataStore) -> None:
+    with pytest.raises(ValueError, match="does not exist"):
+        fresh_store.create_task("T", "pending", user_id=9999)
+
+
+def test_create_task_appears_in_get_tasks(fresh_store: DataStore) -> None:
+    before = len(fresh_store.get_tasks())
+    fresh_store.create_task("New task", "pending", user_id=1)
+    assert len(fresh_store.get_tasks()) == before + 1
+
+
+# ---------------------------------------------------------------------------
+# update_task
+# ---------------------------------------------------------------------------
+
+def test_update_task_status(fresh_store: DataStore) -> None:
+    updated = fresh_store.update_task(1, title=None, status="completed", user_id=None)
+    assert updated is not None
+    assert updated.status == "completed"
+
+
+def test_update_task_title(fresh_store: DataStore) -> None:
+    updated = fresh_store.update_task(1, title="Renamed", status=None, user_id=None)
+    assert updated is not None
+    assert updated.title == "Renamed"
+
+
+def test_update_task_user_id(fresh_store: DataStore) -> None:
+    updated = fresh_store.update_task(1, title=None, status=None, user_id=2)
+    assert updated is not None
+    assert updated.userId == 2
+
+
+def test_update_task_multiple_fields(fresh_store: DataStore) -> None:
+    updated = fresh_store.update_task(1, title="Multi", status="completed", user_id=2)
+    assert updated is not None
+    assert updated.title == "Multi"
+    assert updated.status == "completed"
+    assert updated.userId == 2
+
+
+def test_update_task_unset_fields_unchanged(fresh_store: DataStore) -> None:
+    original = fresh_store.get_tasks()
+    task1 = next(t for t in original if t.id == 1)
+    fresh_store.update_task(1, title=None, status="completed", user_id=None)
+    tasks = fresh_store.get_tasks()
+    updated = next(t for t in tasks if t.id == 1)
+    assert updated.title == task1.title
+    assert updated.userId == task1.userId
+
+
+def test_update_task_not_found_returns_none(fresh_store: DataStore) -> None:
+    assert fresh_store.update_task(9999, title="X", status=None, user_id=None) is None
+
+
+def test_update_task_nonexistent_user_id_raises(fresh_store: DataStore) -> None:
+    with pytest.raises(ValueError, match="does not exist"):
+        fresh_store.update_task(1, title=None, status=None, user_id=9999)
+
+
+def test_update_task_is_persisted_in_get_tasks(fresh_store: DataStore) -> None:
+    fresh_store.update_task(1, title=None, status="completed", user_id=None)
+    tasks = fresh_store.get_tasks()
+    task = next(t for t in tasks if t.id == 1)
+    assert task.status == "completed"

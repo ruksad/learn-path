@@ -91,6 +91,8 @@ Same UI as other tests: shows users, tasks, stats, and health.
 | Endpoint | Status |
 |---|---|
 | `POST /api/users` | Implemented — validates name, email format, role enum; 201 on success, 400 on bad input or duplicate email |
+| `POST /api/tasks` | Implemented — validates title, status enum, userId existence; 201 on success, 400 on bad input |
+| `PUT /api/tasks/{id}` | Implemented — partial update; 200 on success, 404 if not found, 400 on bad input |
 | Request logging middleware | Implemented — logs method, path, status code, duration on every request |
 
 ### Phase 4 — Code Quality (complete)
