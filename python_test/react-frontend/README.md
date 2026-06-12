@@ -121,7 +121,7 @@ API_KEYS=mykey123 python -m app.main
 
 # Terminal 2 — Node.js backend
 cd ../node-backend
-PYTHON_API_KEY=mykey123 npm start
+API_KEY=mykey123 npm start
 
 # Terminal 3 — React frontend
 npm run dev

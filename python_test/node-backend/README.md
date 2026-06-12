@@ -26,16 +26,16 @@ Server runs on `http://localhost:3000` by default.
 |---|---|---|
 | `PORT` | `3000` | Port the Express server listens on |
 | `GO_BACKEND_URL` | `http://localhost:8080` | URL of the Python backend |
-| `PYTHON_API_KEY` | _(empty)_ | Forwarded as `X-API-Key` on every Python request. Must match `API_KEYS` set on the Python backend |
+| `API_KEY` | _(empty)_ | Forwarded as `X-API-Key` on every Python request. Must match `API_KEYS` set on the Python backend |
 
 Create a `.env` file in this directory to set them:
 
 ```env
 GO_BACKEND_URL=http://localhost:8080
-PYTHON_API_KEY=mykey123
+API_KEY=mykey123
 ```
 
-> **Important:** if the Python backend is started with `API_KEYS=mykey123`, Node.js must be started with `PYTHON_API_KEY=mykey123` — otherwise every proxied request returns 401.
+> **Important:** if the Python backend is started with `API_KEYS=mykey123`, Node.js must be started with `API_KEY=mykey123` — otherwise every proxied request returns 401.
 
 ## API Endpoints
 
@@ -123,7 +123,7 @@ curl http://localhost:3000/api/metrics
 node-backend/
 ├── app.js                  # Express entry point, CORS, body parser
 ├── config/
-│   └── index.js            # Reads env vars (PORT, GO_BACKEND_URL, PYTHON_API_KEY)
+│   └── index.js            # Reads env vars (PORT, GO_BACKEND_URL, API_KEY)
 ├── routes/
 │   ├── index.js            # Mounts all sub-routers
 │   ├── health.js
@@ -153,7 +153,7 @@ cd ../python-backend
 API_KEYS=mykey123 python -m app.main
 
 # Terminal 2 — Node.js backend (key forwarded)
-PYTHON_API_KEY=mykey123 npm start
+API_KEY=mykey123 npm start
 ```
 
-Without `PYTHON_API_KEY` set the header is omitted and Python returns 401 for every request (except `/health` and `/metrics` which are always public).
+Without `API_KEY` set the header is omitted and Python returns 401 for every request (except `/health` and `/metrics` which are always public).
